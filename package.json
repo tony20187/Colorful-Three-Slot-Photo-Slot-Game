@@ -1,0 +1,14 @@
+{
+  "name": "colorful-one-slot-photo-slot-game",
+  "version": "1.0.0",
+  "description": "繽紛單格照片拉霸遊戲",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "華谷電機機工課雷射組 副組長 李書宏 (Tony)",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^31.0.0"
+  }
+}
