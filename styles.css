@@ -2,84 +2,122 @@
   --bg1:#0b0c14; --bg2:#000; --ink:#e9ecf2; --frame:#292e42;
   --accent:#ffd54a; --ok:#38ef7d; --bad:#ff6b6b; --gold:#f5c542;
 
-  /* 槽位最大尺寸上限（可由密碼面板調整），預設 550px */
+  /* 槽位最大尺寸上限（可由面板調整），預設 550px */
   --slot-max: 550px;
 
-  /* 實際槽位尺寸 = 不超過上限，且不超過視窗寬度/3（預留左右間距） */
-  --slot-size: min(var(--slot-max), calc((100vw - 160px) / 3));
+    --wrap-max: 1100px;
+  /* 實際槽位尺寸：不超過上限，且不超過視窗寬度/3（預留左右間距） */
+  --slot-size: min(var(--slot-max), calc((min(100vw, var(--wrap-max)) - 160px) / 3));
 }
-*{box-sizing:border-box}
-html,body{height:100%;margin:0}
 
-/* === 背景：粉紅獨角獸重複貼圖 + 原漸層 ===
-   若你已把圖另存為 bg_unicorn.png，下面第一個 url 改成 bg_unicorn.png 即可。
-*/
+*{ box-sizing:border-box }
+html,body{ height:100%; margin:0 }
+
 body{
   color:var(--ink);
-  font-family:"Noto Sans TC",system-ui,Segoe UI,Roboto,Arial,sans-serif;
+  font-family:"Noto Sans TC", system-ui, Segoe UI, Roboto, Arial, sans-serif;
+  /* 背景：先疊 bg_unicorn.png 再保留你的漸層，不會蓋掉 */
   background:
-    url('9a05aa2c-4e8f-4bdc-9fd2-f24d31e005a1.png') repeat,
+    url("./bg_unicorn.png") center/cover no-repeat fixed,
     radial-gradient(circle at 50% 25%, #14172a 0%, var(--bg2) 70%);
-  background-size: 420px auto, auto;
   background-attachment: fixed;
   display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:16px;
   overflow-x:hidden; overflow-y:auto; padding-bottom:260px;
 }
 
-/* 標題可讀性強化：深色霧面底片 + 陰影 */
 h1{
   margin:16px 0 0;
-  color:#fff; /* 若想維持金色：改成 color: var(--accent); */
-  -webkit-text-stroke:1px rgba(0,0,0,.18);
-  text-shadow:0 2px 6px rgba(0,0,0,.45);
-  background:rgba(12,14,26,.78);
-  padding:10px 18px;
-  border-radius:14px;
-  border:1px solid rgba(255,255,255,.12);
-  box-shadow:0 10px 26px rgba(0,0,0,.22);
-  backdrop-filter:blur(4px);
-  display:inline-block;
+  color:var(--accent);
+  text-shadow:0 0 18px rgba(255,213,74,.5);
 }
 
-.hud{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; font-size:15px; width:100%; max-width:1100px; }
+/* 置頂操作列 */
+.hud{
+  display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+  font-size:15px; width:100%; max-width:1100px;
+}
 .hud-right{ margin-left:auto; display:flex; align-items:center; gap:8px; }
-.stat{ padding:6px 10px; border:1px solid #2b3044; border-radius:10px; background:#0f1222; }
-
+.stat{
+  padding:6px 10px;
+  border:1px solid #2b3044; border-radius:10px;
+  background:#0f1222;
+}
 .btn,.toggle,.pill{
-  background:#171a2a; border:1px solid #2b3044; color:#cfd3df; padding:8px 12px; border-radius:10px; cursor:pointer;
+  background:#171a2a; border:1px solid #2b3044; color:#cfd3df;
+  padding:8px 12px; border-radius:10px; cursor:pointer;
   box-shadow:0 8px 20px rgba(0,0,0,.35); user-select:none;
 }
+
+/* === 外框：自適應寬度，但上限對齊 3*slot-max + 96px（gap+padding）=== */
 .wrap{
-  padding:22px; background:linear-gradient(180deg,#14192b,#0f1120); border:2px solid var(--frame); border-radius:22px;
+  padding:22px;
+  background:linear-gradient(180deg,#14192b,#0f1120);
+  border:2px solid var(--frame); border-radius:22px;
   box-shadow:inset 0 0 0 2px #0b0d18, 0 30px 70px rgba(0,0,0,.55);
+
+  /* 100% 視口寬 - 64px 內距 vs 三格上限，取較小者 */
+  max-width: min(calc(100vw - 64px), calc(3 * var(--slot-max) + 96px));
+  width: 100%;
+  margin: 0 auto;
 }
 
-/* 三欄固定，但欄寬以 --slot-size 自動縮放 */
+/* === 拉霸盤：固定 3 欄、等分欄寬；寬度規則與 .wrap 完全一致，避免出現外層寬、內層更寬的落差 === */
 .machine{
-  display:grid;
-  grid-template-columns:repeat(3, var(--slot-size));
-  gap:24px; padding:24px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  padding: 24px;
   background:#0e1020; border:2px solid #23283a; border-radius:16px;
+
+  max-width: min(calc(100vw - 64px), calc(3 * var(--slot-max) + 96px));
+  width: 100%;
+  margin: 0 auto;
 }
+
+/* === 槽位：用 aspect-ratio 保正方形；任何情況都不會溢出 === */
 .slot{
-  width:var(--slot-size);
-  height:var(--slot-size);
-  position:relative; overflow:hidden; border-radius:14px;
-  border:3px solid #3c4055; background:#0b0d18; box-shadow:inset 0 0 20px rgba(0,0,0,.7);
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 3px solid #3c4055;
+  background: #0b0d18;
+  box-shadow: inset 0 0 20px rgba(0,0,0,.7);
 }
+
+/* 圖片一定吃滿槽位，但不裁切；仍保持原比例 */
+.slot img{
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: contain;
+  background:#0b0d18; filter:brightness(.98) contrast(1.02);
+}
+
+/* 小螢幕再收一點，避免左右貼邊 */
+@media (max-width: 1024px){
+  .wrap, .machine{
+    max-width: min(calc(100vw - 36px), calc(3 * var(--slot-max) + 96px));
+  }
+}
+
 .slot.spin::after{
   content:""; position:absolute; inset:0; border-radius:12px; border:1px solid rgba(255,213,74,.25);
   box-shadow:0 0 26px rgba(255,213,74,.18), inset 0 0 24px rgba(255,213,74,.08);
   animation:pulse .4s infinite alternate ease-in-out;
 }
 @keyframes pulse{ from{opacity:.4} to{opacity:1} }
+
 .slot img{
   position:absolute; inset:0; width:100%; height:100%;
-  object-fit:contain; background:#0b0d18; filter:brightness(.98) contrast(1.02);
+  object-fit:contain; background:#0b0d18;
+  filter:brightness(.98) contrast(1.02);
 }
 .blur{ filter:brightness(.95) contrast(1.03) blur(2px) }
+
 .message{ margin-top:10px; text-align:center }
-.message.ok{ color:var(--ok) } .message.bad{ color:var(--bad) }
+.message.ok{ color:var(--ok) }
+.message.bad{ color:var(--bad) }
 
 /* 三連線：金框＋震動 */
 .slot.win{
@@ -105,62 +143,98 @@ h1{
     radial-gradient(circle at 70% 70%, rgba(120,200,255,.6), rgba(120,200,255,0) 45%);
   mix-blend-mode:screen; filter:blur(2px); animation:flashPop .9s ease-out forwards;
 }
-@keyframes flashPop{ 0%{opacity:0;transform:scale(.8)} 15%{opacity:1;transform:scale(1)} 60%{opacity:.9} 100%{opacity:0;transform:scale(1.25)} }
+@keyframes flashPop{
+  0%{opacity:0;transform:scale(.8)}
+  15%{opacity:1;transform:scale(1)}
+  60%{opacity:.9}
+  100%{opacity:0;transform:scale(1.25)}
+}
 
-/* 面板 */
+/* =================== 參數調整面板 =================== */
 details.config{
-  width:100%; max-width:1100px; background:#0f1222; border:1px solid #2b3044; border-radius:14px;
-  padding:10px 12px; color:#cfd3df; margin:32px auto 24px;
+  width:100%; max-width:1100px;
+  background:#0f1222; border:1px solid #2b3044; border-radius:14px;
+  padding:10px 12px; color:#cfd3df;
+  margin:32px auto 24px;
 }
-.cfg-grid{
-  display:grid;
-  grid-template-columns:1fr 110px 140px 90px 100px 90px; /* 人物 | 權重 | 預覽(放大) | 已中 | 上限 | 重置 */
-  gap:8px; align-items:center; margin:10px 0;
-}
-.cfg-grid .hdr{ font-weight:700; color:#e7ebf8 }
-.cfg-grid input{ width:100%; padding:8px 10px; border:1px solid #3a415a; background:#12162a; color:#e7ebf8; border-radius:8px }
-.cfg-actions{ display:flex; gap:8px; justify-content:flex-end; }
-.mini{ padding:6px 10px }
-.muted{ color:#9fb2ff; font-size:12px }
-.prevBox{ width:90px;height:90px; display:flex; align-items:center; justify-content:center;
-          border:1px solid #3a415a; border-radius:8px; background:#0b0d18; }
-.prevBox img{ width:100%; height:100%; object-fit:contain; }
 
 /* 面板裡的尺寸滑桿排版 */
-.size-row{ display:flex; align-items:center; gap:10px; margin:8px 0 14px; }
+.size-row{
+  display:flex; align-items:center; gap:10px;
+  margin:8px 0 14px;
+}
 .size-row input[type="range"]{ width:220px; }
 
-/* === 大型拉霸按鈕樣式 === */
-.cta{ display:flex; justify-content:center; margin:12px 0; }
-.spin-btn{
-  font-size:22px; padding:14px 26px; border-radius:999px;
-  border:2px solid #ff9bd4; background:#ffb3e6; color:#4a154b; cursor:pointer;
-  box-shadow:0 12px 28px rgba(0,0,0,.25), inset 0 -4px 0 rgba(0,0,0,.08);
-  transition:transform .06s ease, filter .12s ease;
+/* 欄位表格（人物 / 權重 / 預覽 / 已中 / 上限 / 重置） */
+#cfg{
+  display:grid;
+  grid-template-columns: 1.2fr 0.9fr 1.1fr 0.5fr 0.8fr 0.6fr; /* 人物 / 權重 / 預覽 / 已中 / 上限 / 重置 */
+  gap:8px; align-items:center;
 }
-.spin-btn:hover{ filter:brightness(1.05) }
-.spin-btn:active{ transform:translateY(1px) }
-/* === 手機橫向旋轉修正（防止溢出） === */
-@media (orientation: landscape) and (max-width: 920px) {
-  .machine {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    padding: 16px;
-  }
-  .slot {
-    width: 28vw;
-    height: 28vw;
-  }
+#cfg .hdr{ font-weight:700; opacity:.9; }
+#cfg input{
+  width:100%; padding:8px 10px;
+  border:1px solid #3a415a; background:#12162a; color:#e7ebf8; border-radius:8px;
 }
 
-/* === 小螢幕（手機直立） === */
-@media (max-width: 600px) {
-  .machine {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-  .slot {
-    width: 80vw;
-    height: 80vw;
-  }
+/* 預覽縮圖固定尺寸，避免列高跳動 */
+#cfg .prevBox{
+  width:90px; height:90px;
+  display:flex; align-items:center; justify-content:center;
+  border:1px solid #3a415a; border-radius:8px; background:#0b0d18;
+}
+#cfg .prevBox img{
+  width:60px; height:60px; object-fit:cover;
+  border-radius:8px; border:1px solid #666;
+}
+
+/* 重置鈕縮小置中，不再撐滿整欄 */
+#cfg .btn, #cfg .btn.mini{
+  width:72px; height:28px;
+  padding:4px 10px; font-size:14px; line-height:1;
+  border-radius:6px; margin:0 auto; display:block;
+}
+
+/* 面板按鈕區 */
+.cfg-actions{
+  display:flex; gap:8px; justify-content:flex-end;
+}
+
+/* 小字提示 */
+.muted{ color:#9fb2ff; font-size:12px }
+
+/* === START：主要拉霸鈕置中 + 上浮 + 亮起動畫 === */
+#panelSpinBtn{
+  display:block;
+  margin: 12px auto 0;         /* 置中 */
+  transform: translateY(-4px); /* 微上浮 */
+  background: linear-gradient(180deg,#ff6aa6,#ff3b7c);
+  color:#fff; border:0; border-radius:12px;
+  padding:12px 26px; font-size:18px; font-weight:800;
+  box-shadow:0 6px 18px rgba(255,64,128,.45);
+  transition:transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+}
+#panelSpinBtn:hover{ transform: translateY(-6px); box-shadow:0 10px 24px rgba(255,64,128,.55); }
+#panelSpinBtn:active{ transform: translateY(-2px); }
+#panelSpinBtn.disabled{ opacity:.55; pointer-events:none; }
+
+/* 亮起動畫（按下時套用 .press-glow） */
+#panelSpinBtn.press-glow{
+  box-shadow:0 0 0 rgba(255,64,128,0);
+  animation:panelSpinGlow .6s ease-out;
+}
+@keyframes panelSpinGlow{
+  0%   { box-shadow:0 0 0 rgba(255,64,128,0); }
+  30%  { box-shadow:0 0 28px rgba(255,64,128,.85), 0 0 60px rgba(255,140,180,.45); }
+  100% { box-shadow:0 6px 18px rgba(255,64,128,.45); }
+}
+
+/* 小螢幕微調 */
+@media (max-width: 1024px){
+  :root{ --slot-size: min(var(--slot-max), calc((100vw - 64px) / 3)); }
+  #cfg{ grid-template-columns: 1fr 0.8fr 1fr 0.5fr 0.8fr 0.6fr; }
+}
+@media (max-width: 600px){
+  :root{ --slot-size: min(var(--slot-max), calc((100vw - 36px) / 3)); }
+  #panelSpinBtn{ font-size:16px; padding:11px 22px; transform: translateY(-2px); }
 }

@@ -3,18 +3,17 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>｜Colorful Three‑Slot Photo Slot Game｜</title>
+  <title>｜華谷電機｜Colorful Three-Slot Photo Slot Game｜</title>
   <link rel="icon" type="image/x-icon" href="./icon.ico" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <h1>🎰 繽紛三格照片拉霸機 🎰</h1>
 
+  <!-- 置頂 HUD（保留音量/靜音與統計） -->
   <div class="hud">
-    <div class="btn" id="startBtn">▶ 開始／停止（Space）</div>
     <div class="toggle" id="muteBtn">🔊 聲音：開</div>
     <label>音量 Volume <input type="range" id="vol" min="0" max="100" value="70" /></label>
-    <div class="pill">提示：按 <kbd>Space</kbd> 開始</div>
     <div class="hud-right">
       <div class="stat" id="totalStat">總連線中獎次數：0</div>
     </div>
@@ -26,16 +25,18 @@
       <div class="slot"><img id="r2" alt="reel-2" /></div>
       <div class="slot"><img id="r3" alt="reel-3" /></div>
     </div>
-    <div id="msg" class="message">照片已就緒：按空白鍵開始！</div>
-    <div class="cta">
-  <button class="spin-btn" id="spinBtn">🎀 拉霸！(START)</button>
-</div>
 
+    <!-- 狀態訊息 -->
+    <div id="msg" class="message">照片已就緒：按下方拉霸按鈕開始！</div>
+
+    <!-- ✅ 主要拉霸按鈕（置中＋動畫） -->
+    <button id="panelSpinBtn" class="btn primary">🎰 拉霸！( START )</button>
   </div>
 
-  <!-- 密碼保護設定面板 -->
+  <!-- 密碼保護設定面板（保留原欄位與排序） -->
   <details class="config">
     <summary>⚙️ 參數調整面板（需密碼）</summary>
+
     <div id="passwordArea">
       <input type="password" id="passInput" placeholder="輸入密碼">
       <button class="btn" id="passBtn">確定</button>
@@ -49,8 +50,15 @@
         <span id="sizeVal">550</span>
       </div>
 
-      <div class="muted">上限：0 或空白＝不限制。當某人物「已中」達上限後，會被移出轉盤，不再出現；按「重置」或「重置遊戲」才會回復。權重(Weight)允許 1～10。</div>
+      <!-- 強制三連線機率會由 JS 直接插在上面這一列的下一列 -->
+
+      <div class="muted">
+        上限：0 或空白＝不限制。當某人物「已中」達上限後，會被移出轉盤，不再出現；
+        按「重置」或「重置遊戲」才會回復。權重(Weight)允許 1～10。
+      </div>
+
       <div id="cfg" class="cfg-grid"></div>
+
       <div class="cfg-actions">
         <button class="btn" id="applyBtn">套用設定</button>
         <button class="btn" id="resetWinsAllBtn">重置遊戲（所有已中歸零）</button>

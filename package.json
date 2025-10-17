@@ -1,7 +1,7 @@
 {
   "name": "colorful-one-slot-photo-slot-game",
-  "version": "1.0.0",
-  "description": "繽紛單格照片拉霸遊戲",
+  "version": "2025.10.18-2",
+  "description": "芷瑜三格照片拉霸遊戲",
   "main": "main.js",
   "scripts": {
     "start": "electron ."

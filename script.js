@@ -1,34 +1,45 @@
 (() => {
-  const PASSWORD = "316502";
+  const PASSWORD = "0316";
   const LS_SYMBOL_LIMITS = "slot_symbol_limits_no_payout_v1"; // {file:{maxWins:number,wins:number}}
+  const LS_FORCE_RATE   = "slot_force_jackpot_rate_percent_v1"; // number 0~100 (%)
 
-  /* 7 張照片（使用你提供的新檔名） */
-const DEFAULT_SYMBOLS = [
-  { file: "芷榆-1.jpg", label: "芷榆-1", weight: 10 },
-  { file: "芷榆-2.jpg", label: "芷榆-2", weight: 10 },
-  { file: "芷榆-3.jpg", label: "芷榆-3", weight: 10 },
-  { file: "芷榆-4.jpg", label: "芷榆-4", weight: 10 },
-  { file: "芷榆-5.jpg", label: "芷榆-5", weight: 10 },
-  { file: "芷榆-6.jpg", label: "芷榆-6", weight: 10 },
-  { file: "芷榆-7.jpg", label: "芷榆-7", weight: 10 }
-];
+  /* ===== 可調機率：預設 20% =====
+     可在面板中調整 0~100%，代表「每次拉霸，有 X% 機率被強制為三連線」。
+     只有三張完全相同才算中獎（若未觸發強制，仍採正常隨機）。
+  */
+  let FORCE_JACKPOT_RATE_PERCENT = (() => {
+    const v = Number(localStorage.getItem(LS_FORCE_RATE));
+    return Number.isFinite(v) ? Math.min(100, Math.max(0, Math.floor(v))) : 20;
+  })();
 
+  /* 7 張照片（依你提供的檔名） */
+  const DEFAULT_SYMBOLS = [
+    { file: "芷榆-1.jpg", label: "芷榆-1", weight: 10 },
+    { file: "芷榆-2.jpg", label: "芷榆-2", weight: 10 },
+    { file: "芷榆-3.jpg", label: "芷榆-3", weight: 10 },
+    { file: "芷榆-4.jpg", label: "芷榆-4", weight: 10 },
+    { file: "芷榆-5.jpg", label: "芷榆-5", weight: 10 },
+    { file: "芷榆-6.jpg", label: "芷榆-6", weight: 10 },
+    { file: "芷榆-7.jpg", label: "芷榆-7", weight: 10 }
+  ];
 
   /* DOM */
   const img1 = document.getElementById("r1");
   const img2 = document.getElementById("r2");
   const img3 = document.getElementById("r3");
   const msg  = document.getElementById("msg");
-  const startBtn = document.getElementById("startBtn");
   const muteBtn  = document.getElementById("muteBtn");
   const vol = document.getElementById("vol");
   const totalStat = document.getElementById("totalStat");
+  const panelSpinBtn = document.getElementById("panelSpinBtn");
   const root = document.body;
 
   /* 狀態 */
   let spinning=false, spinIntervals=[], isMuted=false;
   let symbols=[...DEFAULT_SYMBOLS];
   let bag=[];
+  // ★ 本局預先決定的最終結果（陣列長度 3）
+  let plannedFinals = null;
 
   /* 權重夾住：1～10 */
   const clampWeight = (v)=> {
@@ -132,8 +143,22 @@ const DEFAULT_SYMBOLS = [
     g.gain.exponentialRampToValueAtTime(0.0001, t+0.35);
     o.stop(t+0.4);
   }
+
+  // 啟動提示音（載入後播一下「滴」）
+  function playStartHint(){
+    if(isMuted) return; ensureAudio();
+    const o=ctx.createOscillator(), g=ctx.createGain();
+    o.type="square"; o.frequency.value=880; g.gain.value=0.0001;
+    o.connect(g).connect(masterGain);
+    const t=ctx.currentTime;
+    o.start(t);
+    g.gain.exponentialRampToValueAtTime((Number(vol.value)/100)*0.18, t+0.03);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+0.20);
+    o.stop(t+0.22);
+  }
+
   window.addEventListener("pointerdown", ()=>{ try{ ensureAudio(); }catch(e){} }, { once:true });
-  vol.addEventListener("input", ()=>{ if(masterGain) masterGain.gain.value=(Number(vol.value)/100)*0.8; });
+  vol?.addEventListener("input", ()=>{ if(masterGain) masterGain.gain.value=(Number(vol.value)/100)*0.8; });
 
   /* ===== 視覺旋轉 ===== */
   const reels=[img1,img2,img3];
@@ -155,62 +180,123 @@ const DEFAULT_SYMBOLS = [
     setTimeout(()=>els.forEach(s=>s.classList.remove("win")),700);
   }
 
-  /* ===== 遊戲流程 ===== */
+  /* ===== 遊戲流程：先決定結果，停止時只顯示，不再後期硬改 ===== */
   function startSpin(){
     if(spinning) return;
-    spinning=true; msg.className="message"; msg.textContent="轉動中...";
+    spinning=true;
+    msg.className="message"; msg.textContent="轉動中...";
     startSpinSFX();
+
+    // UI：按鈕反白動畫＋禁用
+    panelSpinBtn?.classList.add('press-glow');
+    panelSpinBtn?.classList.add('disabled');
+
+    // 啟動視覺轉動
     startReel(0,55); startReel(1,65); startReel(2,75);
-    const f1=pick(), f2=pick(), f3=pick();
-    setTimeout(()=>stopReel(0,f1),700);
-    setTimeout(()=>stopReel(1,f2),1200);
-    setTimeout(()=>{ stopReel(2,f3); finish([f1,f2,f3]); },1700);
-  }
-  function finish(arr){
-    stopSpinSFX(); spinning=false;
-    const [a,b,c]=arr;
-    if(a.file && a.file===b.file && b.file===c.file){
-      const sym = symbols.find(s=>s.file===a.file) || a;
-      const lim = symbolLimits[sym.file] || {maxWins:0,wins:0};
-      lim.wins = (lim.wins||0) + 1;
-      symbolLimits[sym.file] = lim; saveLimits();
-      updateTotalStat();
-      msg.className="message ok";
-      msg.textContent=`🎉 三連線！「${sym.label}」 （該人物第 ${lim.wins} 次）`;
-      if(lim.maxWins>0 && lim.wins>=lim.maxWins){ rebuildBag(); }
-      const winsSpan = document.querySelector(`[data-file="${CSS.escape(sym.file)}"].wins`);
-      if(winsSpan) winsSpan.textContent = String(lim.wins);
-      root.classList.add("win-flash"); markWinSlots(true);
-      setTimeout(()=>root.classList.remove("win-flash"),900);
-      playApplause();
-    }else{
-      msg.className="message bad"; msg.textContent="未中獎，再試一次！（Space）";
-      playLose();
+
+    // 先決定本局結果：命中機率→三張同圖；否則三張獨立
+    const hit = Math.random() < (Math.min(100, Math.max(0, Number(FORCE_JACKPOT_RATE_PERCENT)||0)) / 100);
+    if (hit) {
+      const s = pick();
+      plannedFinals = [s, s, s];
+    } else {
+      plannedFinals = [pick(), pick(), pick()];
     }
+
+    // 嚴格按照 plannedFinals 停輪
+    setTimeout(()=>stopReel(0, plannedFinals[0]),700);
+    setTimeout(()=>stopReel(1, plannedFinals[1]),1200);
+    setTimeout(()=>{ stopReel(2, plannedFinals[2]); finish(plannedFinals); },1700);
   }
+
+  function finish(arr){
+    stopSpinSFX();
+    spinning = false;
+
+    // UI：按鈕恢復
+    panelSpinBtn?.classList.remove('disabled');
+
+    // 只判斷，不改圖、不抽新圖
+    var a = arr[0], b = arr[1], c = arr[2];
+
+    if (a && b && c && a.file && a.file === b.file && b.file === c.file) {
+      var sym = symbols.find(function(s){ return s.file === a.file; }) || a;
+      var lim = symbolLimits[sym.file] || { maxWins: 0, wins: 0 };
+      lim.wins = (lim.wins || 0) + 1;
+      symbolLimits[sym.file] = lim;
+      saveLimits();
+      updateTotalStat();
+
+      msg.className = "message ok";
+      msg.textContent = "🎉 三連線！「" + sym.label + "」 （該人物第 " + lim.wins + " 次）";
+
+      if (lim.maxWins > 0 && lim.wins >= lim.maxWins) {
+        rebuildBag();
+      }
+
+      // 更新面板上的已中次數
+      var key = sym.file;
+      var selector = '[data-file="' + (typeof CSS !== "undefined" && CSS.escape ? CSS.escape(key) : key) + '"].wins';
+      var winsSpan = document.querySelector(selector);
+      if (winsSpan) winsSpan.textContent = String(lim.wins);
+
+      if (root) root.classList.add("win-flash");
+      if (typeof markWinSlots === "function") markWinSlots(true);
+      setTimeout(function(){ if (root) root.classList.remove("win-flash"); }, 900);
+      if (typeof playApplause === "function") playApplause();
+    } else {
+      msg.className = "message bad";
+      msg.textContent = "未中獎，再試一次！（Space）";
+      if (typeof playLose === "function") playLose();
+    }
+
+    // 移除一次性的亮起動畫 class（下次再按會重新加上）
+    setTimeout(()=>panelSpinBtn?.classList.remove('press-glow'), 300);
+  }
+
   function stopSpinManual(){
     if(!spinning) return;
-    const finals=reels.map(()=>pick());
-    [0,1,2].forEach(i=>{ if(spinIntervals[i]) stopReel(i, finals[i]); });
-    finish(finals);
+
+    // 停止轉動特效
+    [0,1,2].forEach(i=>{
+      if(spinIntervals[i]) clearInterval(spinIntervals[i]);
+      reels[i].classList.remove("blur");
+      reels[i].parentElement.classList.remove("spin");
+    });
+
+    // 直接用「已決定的 plannedFinals」當最終結果（不再 pick()）
+    if (!plannedFinals) {
+      plannedFinals = reels.map(el=>{
+        const f = (el.getAttribute("src")||"").split("/").pop();
+        return symbols.find(s=>s.file===f) || {file:f,label:f,weight:1};
+      });
+    } else {
+      reels[0].src = plannedFinals[0].file;
+      reels[1].src = plannedFinals[1].file;
+      reels[2].src = plannedFinals[2].file;
+    }
+
+    finish(plannedFinals);
   }
+
+  /* ===== 操作綁定 ===== */
   document.addEventListener("keydown", e=>{
     if(e.code==="Space"){
       e.preventDefault(); ensureAudio();
       if(!spinning) startSpin(); else stopSpinManual();
     }
   });
-  startBtn.addEventListener("click", ()=>{ ensureAudio(); !spinning ? startSpin() : stopSpinManual(); });
-  muteBtn.addEventListener("click", ()=>{
+
+  muteBtn?.addEventListener("click", ()=>{
     isMuted = !isMuted;
     muteBtn.textContent = isMuted ? "🔇 聲音：關" : "🔊 聲音：開";
   });
-  // 🎀 新增拉霸按鈕事件（與 Space / StartBtn 同功能）
-document.getElementById('spinBtn')?.addEventListener('click', () => {
-  ensureAudio();
-  !spinning ? startSpin() : stopSpinManual();
-});
 
+  // ✅ 主要拉霸按鈕（面板上方）
+  panelSpinBtn?.addEventListener("click", () => {
+    ensureAudio();
+    if (!spinning) startSpin(); else stopSpinManual();
+  });
 
   /* ===== 面板（密碼＋表單） ===== */
   const passInput=document.getElementById("passInput");
@@ -224,13 +310,53 @@ document.getElementById('spinBtn')?.addEventListener('click', () => {
   /* 尺寸滑桿 */
   const sizeSlider = document.getElementById("sizeSlider");
   const sizeVal = document.getElementById("sizeVal");
-  sizeSlider.addEventListener("input", ()=>{
+  sizeSlider?.addEventListener("input", ()=>{
     document.documentElement.style.setProperty("--slot-max", sizeSlider.value + "px");
     sizeVal.textContent = sizeSlider.value;
   });
 
+  // 建立「強制三連線機率」控制列（0~100%），插在尺寸滑桿那一列後面
+  function renderForceRateRow(container){
+    const old = container.querySelector('.force-row');
+    if (old) old.remove();
+
+    const row = document.createElement("div");
+    row.className = "size-row force-row";
+
+    const label = document.createElement("label");
+    label.textContent = "強制三連線機率(%)：";
+
+    const input = document.createElement("input");
+    input.type = "number"; input.min = "0"; input.max = "100"; input.step = "1";
+    input.value = String(FORCE_JACKPOT_RATE_PERCENT);
+    input.oninput = ()=>{
+      let v = Math.floor(Number(input.value)||0);
+      if(v<0) v=0; if(v>100) v=100;
+      FORCE_JACKPOT_RATE_PERCENT = v;
+      input.value = String(v);
+      try{ localStorage.setItem(LS_FORCE_RATE, String(v)); }catch(e){}
+    };
+
+    const tip = document.createElement("span");
+    tip.className="muted";
+    tip.textContent = "（0 = 不啟用；預設 20）";
+
+    row.append(label, input, tip);
+
+    const sizeRow = container.querySelector('.size-row'); // 尺寸滑桿那一列
+    if (sizeRow) {
+      sizeRow.parentNode.insertBefore(row, sizeRow.nextSibling);
+    } else {
+      container.appendChild(row);
+    }
+  }
+
   function renderConfig(){
     cfgHost.innerHTML="";
+
+    // 先插入強制機率控制（放在尺寸列後面）
+    renderForceRateRow(cfgArea);
+
     const heads=["人物","權重(1~10)","預覽","已中","上限","重置"];
     heads.forEach((h,idx)=>{
       const d=document.createElement("div");
@@ -285,29 +411,29 @@ document.getElementById('spinBtn')?.addEventListener('click', () => {
     });
   }
 
-  document.getElementById("passBtn").addEventListener("click", ()=>{
+  document.getElementById("passBtn")?.addEventListener("click", ()=>{
     if(passInput.value===PASSWORD){
       passMsg.textContent="✅ 密碼正確";
-      passwordArea.style.display="none";
-      cfgArea.style.display="block";
+      document.getElementById("passwordArea").style.display="none";
+      document.getElementById("cfgContainer").style.display="block";
       renderConfig();
     }else{
       passMsg.textContent="❌ 密碼錯誤";
     }
   });
 
-  document.getElementById("applyBtn").addEventListener("click", ()=>{
+  document.getElementById("applyBtn")?.addEventListener("click", ()=>{
     saveLimits(); rebuildBag();
-    msg.textContent="✅ 已套用設定（權重/個別上限）";
+    msg.textContent="✅ 已套用設定（權重/個別上限/機率）";
   });
 
-  document.getElementById("resetBtn").addEventListener("click", ()=>{
+  document.getElementById("resetBtn")?.addEventListener("click", ()=>{
     symbols=[...DEFAULT_SYMBOLS];
     renderConfig(); rebuildBag();
-    msg.textContent="↩ 已重置為預設權重";
+    msg.textContent="↩ 已重置為預設權重（機率值保留，可在上方調整）";
   });
 
-  resetWinsAllBtn.addEventListener("click", ()=>{
+  resetWinsAllBtn?.addEventListener("click", ()=>{
     Object.keys(symbolLimits).forEach(k=> symbolLimits[k].wins=0 );
     saveLimits(); rebuildBag(); updateTotalStat();
     document.querySelectorAll(".wins").forEach(el=>el.textContent="0");
@@ -316,10 +442,15 @@ document.getElementById('spinBtn')?.addEventListener('click', () => {
 
   /* 初始化 */
   preload(symbols).then(()=>{
+    // 預先放三張，確保進入畫面就有圖
     const f = symbols;
     document.getElementById("r1").src = f[0].file;
     document.getElementById("r2").src = f[1].file;
     document.getElementById("r3").src = f[2].file;
-    msg.textContent = "照片已就緒：按空白鍵開始！";
+
+    // 初始提示音
+    playStartHint();
+
+    msg.textContent = "照片已就緒：按下方拉霸按鈕開始！";
   });
 })();
