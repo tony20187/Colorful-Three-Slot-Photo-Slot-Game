@@ -1,7 +1,7 @@
 {
   "name": "colorful-one-slot-photo-slot-game",
-  "version": "2025.10.18-6",
-  "description": "芷瑜三格照片拉霸遊戲",
+  "version": "2025.10.18-2",
+  "description": "烏日三格照片拉霸遊戲",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -12,5 +12,30 @@
   "devDependencies": {
     "electron": "^31.0.0",
     "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.hwaguo.colorfulslot",
+    "productName": "繽紛三格照片拉霸機",
+    "copyright": "© 2025 華谷電機雷射組",
+    "directories": {
+      "buildResources": "build"
+    },
+    "files": [
+      "**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "繽紛三格照片拉霸機"
+    }
   }
 }

@@ -1,7 +1,8 @@
 (() => {
-  const PASSWORD = "0316";
+  const PASSWORD = "0715";
   const LS_SYMBOL_LIMITS = "slot_symbol_limits_no_payout_v1"; // {file:{maxWins:number,wins:number}}
   const LS_FORCE_RATE   = "slot_force_jackpot_rate_percent_v1"; // 0~100 %
+  const LS_SESSION_WINS = "slot_session_wins_v1";               // 本次開啟累計（session）
 
   /* ===== 可調機率：預設 20% =====
      代表「每次拉霸，有 X% 機率被強制為三連線」。
@@ -12,15 +13,15 @@
     return Number.isFinite(v) ? Math.min(100, Math.max(0, Math.floor(v))) : 20;
   })();
 
-  /* 7 張照片（依檔名） */
+ /* 7 張照片（使用你提供的新檔名） */
   const DEFAULT_SYMBOLS = [
-    { file: "芷榆-1.jpg", label: "芷榆-1", weight: 10 },
-    { file: "芷榆-2.jpg", label: "芷榆-2", weight: 10 },
-    { file: "芷榆-3.jpg", label: "芷榆-3", weight: 10 },
-    { file: "芷榆-4.jpg", label: "芷榆-4", weight: 10 },
-    { file: "芷榆-5.jpg", label: "芷榆-5", weight: 10 },
-    { file: "芷榆-6.jpg", label: "芷榆-6", weight: 10 },
-    { file: "芷榆-7.jpg", label: "芷榆-7", weight: 10 }
+    { file: "父女三人.jpg", label: "父女三人", weight: 10 },
+    { file: "孕婦寫真.jpg", label: "孕婦寫真", weight: 10 },
+    { file: "岑怡.jpg",     label: "岑怡",     weight: 10 },
+    { file: "芸唏.jpg",     label: "芸唏",     weight: 10 },
+    { file: "庭悅.jpg",     label: "庭悅",     weight: 10 },
+    { file: "婚紗照-1.jpg", label: "婚紗-1",   weight: 10 },
+    { file: "婚紗照-2.jpg", label: "婚紗-2",   weight: 10 }
   ];
 
   /* DOM */
@@ -32,6 +33,7 @@
   const vol = document.getElementById("vol");
   const totalStat = document.getElementById("totalStat");
   const panelSpinBtn = document.getElementById("panelSpinBtn");
+  const versionLabel = document.getElementById("versionLabel"); // 可選
   const root = document.body;
 
   /* 狀態 */
@@ -41,6 +43,17 @@
   // 本局預先決定的最終結果（陣列長度 3）
   let plannedFinals = null;
 
+  /* 本次開啟累計中獎數（session 儲存） */
+  let sessionWins = Number(sessionStorage.getItem(LS_SESSION_WINS)) || 0;
+  const incSessionWins = () => {
+    sessionWins += 1;
+    try { sessionStorage.setItem(LS_SESSION_WINS, String(sessionWins)); } catch(e){}
+  };
+  const resetSessionWins = () => {
+    sessionWins = 0;
+    try { sessionStorage.removeItem(LS_SESSION_WINS); } catch(e){}
+  };
+
   /* 權重夾住：1～10 */
   const clampWeight = (v)=> {
     v = Math.round(Number(v)||1);
@@ -49,7 +62,7 @@
     return v;
   };
 
-  /* ===== 個別上限/計數 ===== */
+  /* ===== 個別上限/計數（永久，localStorage） ===== */
   function loadLimits(){
     let data = {};
     try{ data = JSON.parse(localStorage.getItem(LS_SYMBOL_LIMITS)||"{}"); }catch(e){ data={}; }
@@ -62,8 +75,11 @@
   const isBlocked = (file)=> {
     const lim = symbolLimits[file]; return lim && lim.maxWins>0 && lim.wins>=lim.maxWins;
   };
-  const totalWins = ()=> Object.values(symbolLimits).reduce((a,b)=>a+(b.wins||0),0);
-  const updateTotalStat = ()=> totalStat.textContent = `總連線中獎次數：${totalWins()}`;
+
+  /* 右下顯示：本次開啟累計 */
+  const updateTotalStat = ()=> {
+    if (totalStat) totalStat.textContent = `總連線中獎次數：${sessionWins}`;
+  };
   updateTotalStat();
 
   /* ===== 權重抽樣袋（排除達上限者） ===== */
@@ -94,7 +110,7 @@
     if(!ctx){
       ctx = new (window.AudioContext||window.webkitAudioContext)();
       masterGain = ctx.createGain();
-      masterGain.gain.value = (Number(vol.value)/100)*0.8;
+      masterGain.gain.value = (Number(vol?.value||70)/100)*0.8;
       masterGain.connect(ctx.destination);
     }
     if(ctx.state==="suspended") ctx.resume();
@@ -108,7 +124,7 @@
     const o2 = ctx.createOscillator(); o2.type="sawtooth"; o2.frequency.value=164; o2.detune.value=+6;
     o1.connect(g); o2.connect(g); g.connect(lp).connect(masterGain);
     const now = ctx.currentTime;
-    g.gain.exponentialRampToValueAtTime((Number(vol.value)/100)*0.08, now+0.12);
+    g.gain.exponentialRampToValueAtTime((Number(vol?.value||70)/100)*0.08, now+0.12);
     o1.frequency.linearRampToValueAtTime(260, now+1.5);
     o2.frequency.linearRampToValueAtTime(266, now+1.5);
     o1.start(); o2.start();
@@ -128,7 +144,7 @@
     o.connect(g).connect(masterGain);
     const t=ctx.currentTime;
     o.start(t);
-    g.gain.exponentialRampToValueAtTime((Number(vol.value)/100)*0.3, t+0.05);
+    g.gain.exponentialRampToValueAtTime((Number(vol?.value||70)/100)*0.3, t+0.05);
     g.gain.exponentialRampToValueAtTime(0.0001, t+0.4);
     o.stop(t+0.45);
   }
@@ -139,7 +155,7 @@
     o.connect(g).connect(masterGain);
     const t=ctx.currentTime;
     o.start(t);
-    g.gain.exponentialRampToValueAtTime((Number(vol.value)/100)*0.25, t+0.05);
+    g.gain.exponentialRampToValueAtTime((Number(vol?.value||70)/100)*0.25, t+0.05);
     g.gain.exponentialRampToValueAtTime(0.0001, t+0.35);
     o.stop(t+0.4);
   }
@@ -152,7 +168,7 @@
     o.connect(g).connect(masterGain);
     const t=ctx.currentTime;
     o.start(t);
-    g.gain.exponentialRampToValueAtTime((Number(vol.value)/100)*0.18, t+0.03);
+    g.gain.exponentialRampToValueAtTime((Number(vol?.value||70)/100)*0.18, t+0.03);
     g.gain.exponentialRampToValueAtTime(0.0001, t+0.20);
     o.stop(t+0.22);
   }
@@ -220,6 +236,9 @@
       lim.wins = (lim.wins || 0) + 1;
       symbolLimits[sym.file] = lim;
       saveLimits();
+
+      // ▶ 本次會話＋1（顯示於右下）
+      incSessionWins();
       updateTotalStat();
 
       msg.className = "message ok";
@@ -298,9 +317,7 @@
   const passwordArea=document.getElementById("passwordArea");
   const resetWinsAllBtn=document.getElementById("resetWinsAllBtn");
 
-  // ⚠️ 已移除「尺寸滑桿」所有程式碼（自動響應由 CSS 處理）
-
-  // === 強制三連線機率列（0~100%）＋ 設定按鈕：放在面板最上方 ===
+  // === 強制三連線機率列（0~100%）＋ 設定 / 重置(20%)：放在面板最上方 ===
   function renderForceRateRow(container){
     const old = container.querySelector('.force-row');
     if (old) old.remove();
@@ -332,24 +349,21 @@
       msg.textContent = `🎯 已設定強制三連線機率為 ${v}%`;
     };
 
+    const resetBtn = document.createElement("button");
+    resetBtn.textContent = "重置";
+    resetBtn.className = "btn mini";
+    resetBtn.onclick = () => {
+      FORCE_JACKPOT_RATE_PERCENT = 20;
+      input.value = "20";
+      try { localStorage.setItem(LS_FORCE_RATE, "20"); } catch(e) {}
+      msg.textContent = "🔄 已重置強制三連線機率為 20%";
+    };
+
     const tip = document.createElement("span");
     tip.className="muted";
     tip.textContent = "（0 = 不啟用；預設 20）";
 
-    const resetBtn = document.createElement("button");
-resetBtn.textContent = "重置";
-resetBtn.className = "btn mini";
-resetBtn.onclick = () => {
-  FORCE_JACKPOT_RATE_PERCENT = 20;
-  input.value = "20";
-  try { localStorage.setItem(LS_FORCE_RATE, "20"); } catch(e) {}
-  msg.textContent = "🔄 已重置強制三連線機率為 20%";
-};
-
-row.append(label, input, setBtn, resetBtn, tip);
-
-
-    // 直接插在面板內容最上方
+    row.append(label, input, setBtn, resetBtn, tip);
     container.prepend(row);
   }
 
@@ -429,7 +443,12 @@ row.append(label, input, setBtn, resetBtn, tip);
 
   resetWinsAllBtn?.addEventListener("click", ()=>{
     Object.keys(symbolLimits).forEach(k=> symbolLimits[k].wins=0 );
-    saveLimits(); rebuildBag(); updateTotalStat();
+    saveLimits(); rebuildBag();
+
+    // 歸零「本次開啟」總數
+    resetSessionWins();
+    updateTotalStat();
+
     document.querySelectorAll(".wins").forEach(el=>el.textContent="0");
     msg.textContent="🧹 已重置遊戲（所有已中歸零，皆可再出現）";
   });
@@ -440,7 +459,16 @@ row.append(label, input, setBtn, resetBtn, tip);
     document.getElementById("r1").src = f[0].file;
     document.getElementById("r2").src = f[1].file;
     document.getElementById("r3").src = f[2].file;
+
     playStartHint();
     msg.textContent = "照片已就緒：按下方拉霸按鈕開始！";
+
+    // 顯示版本（如果 HTML 放了 #versionLabel）
+    if (versionLabel && window.APP_VERSION) {
+      versionLabel.textContent = `版本：v${window.APP_VERSION}`;
+    }
+
+    // 確保剛開啟時右下顯示 0（或 session 值）
+    updateTotalStat();
   });
 })();
