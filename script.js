@@ -1,18 +1,18 @@
 (() => {
   const PASSWORD = "0316";
   const LS_SYMBOL_LIMITS = "slot_symbol_limits_no_payout_v1"; // {file:{maxWins:number,wins:number}}
-  const LS_FORCE_RATE   = "slot_force_jackpot_rate_percent_v1"; // number 0~100 (%)
+  const LS_FORCE_RATE   = "slot_force_jackpot_rate_percent_v1"; // 0~100 %
 
   /* ===== 可調機率：預設 20% =====
-     可在面板中調整 0~100%，代表「每次拉霸，有 X% 機率被強制為三連線」。
-     只有三張完全相同才算中獎（若未觸發強制，仍採正常隨機）。
+     代表「每次拉霸，有 X% 機率被強制為三連線」。
+     只有三張完全相同才算中獎（未觸發強制時仍採正常隨機）。
   */
   let FORCE_JACKPOT_RATE_PERCENT = (() => {
     const v = Number(localStorage.getItem(LS_FORCE_RATE));
     return Number.isFinite(v) ? Math.min(100, Math.max(0, Math.floor(v))) : 20;
   })();
 
-  /* 7 張照片（依你提供的檔名） */
+  /* 7 張照片（依檔名） */
   const DEFAULT_SYMBOLS = [
     { file: "芷榆-1.jpg", label: "芷榆-1", weight: 10 },
     { file: "芷榆-2.jpg", label: "芷榆-2", weight: 10 },
@@ -38,7 +38,7 @@
   let spinning=false, spinIntervals=[], isMuted=false;
   let symbols=[...DEFAULT_SYMBOLS];
   let bag=[];
-  // ★ 本局預先決定的最終結果（陣列長度 3）
+  // 本局預先決定的最終結果（陣列長度 3）
   let plannedFinals = null;
 
   /* 權重夾住：1～10 */
@@ -75,7 +75,7 @@
       for(let i=0;i<w;i++) bag.push(s);
     });
     if(bag.length===0){
-      bag = [{file:"",label:"",weight:1,__dummy:true}]; // 保底
+      bag = [...symbols]; // 保底：全部回袋
     }
   }
   rebuildBag();
@@ -180,21 +180,19 @@
     setTimeout(()=>els.forEach(s=>s.classList.remove("win")),700);
   }
 
-  /* ===== 遊戲流程：先決定結果，停止時只顯示，不再後期硬改 ===== */
+  /* ===== 遊戲流程：先決定結果，停止時只顯示 ===== */
   function startSpin(){
     if(spinning) return;
     spinning=true;
     msg.className="message"; msg.textContent="轉動中...";
     startSpinSFX();
 
-    // UI：按鈕反白動畫＋禁用
     panelSpinBtn?.classList.add('press-glow');
     panelSpinBtn?.classList.add('disabled');
 
-    // 啟動視覺轉動
     startReel(0,55); startReel(1,65); startReel(2,75);
 
-    // 先決定本局結果：命中機率→三張同圖；否則三張獨立
+    // 命中機率→三張同圖；否則三張獨立
     const hit = Math.random() < (Math.min(100, Math.max(0, Number(FORCE_JACKPOT_RATE_PERCENT)||0)) / 100);
     if (hit) {
       const s = pick();
@@ -203,7 +201,6 @@
       plannedFinals = [pick(), pick(), pick()];
     }
 
-    // 嚴格按照 plannedFinals 停輪
     setTimeout(()=>stopReel(0, plannedFinals[0]),700);
     setTimeout(()=>stopReel(1, plannedFinals[1]),1200);
     setTimeout(()=>{ stopReel(2, plannedFinals[2]); finish(plannedFinals); },1700);
@@ -213,10 +210,8 @@
     stopSpinSFX();
     spinning = false;
 
-    // UI：按鈕恢復
     panelSpinBtn?.classList.remove('disabled');
 
-    // 只判斷，不改圖、不抽新圖
     var a = arr[0], b = arr[1], c = arr[2];
 
     if (a && b && c && a.file && a.file === b.file && b.file === c.file) {
@@ -230,9 +225,7 @@
       msg.className = "message ok";
       msg.textContent = "🎉 三連線！「" + sym.label + "」 （該人物第 " + lim.wins + " 次）";
 
-      if (lim.maxWins > 0 && lim.wins >= lim.maxWins) {
-        rebuildBag();
-      }
+      if (lim.maxWins > 0 && lim.wins >= lim.maxWins) rebuildBag();
 
       // 更新面板上的已中次數
       var key = sym.file;
@@ -241,16 +234,15 @@
       if (winsSpan) winsSpan.textContent = String(lim.wins);
 
       if (root) root.classList.add("win-flash");
-      if (typeof markWinSlots === "function") markWinSlots(true);
+      markWinSlots(true);
       setTimeout(function(){ if (root) root.classList.remove("win-flash"); }, 900);
-      if (typeof playApplause === "function") playApplause();
+      playApplause();
     } else {
       msg.className = "message bad";
       msg.textContent = "未中獎，再試一次！（Space）";
-      if (typeof playLose === "function") playLose();
+      playLose();
     }
 
-    // 移除一次性的亮起動畫 class（下次再按會重新加上）
     setTimeout(()=>panelSpinBtn?.classList.remove('press-glow'), 300);
   }
 
@@ -292,7 +284,6 @@
     muteBtn.textContent = isMuted ? "🔇 聲音：關" : "🔊 聲音：開";
   });
 
-  // ✅ 主要拉霸按鈕（面板上方）
   panelSpinBtn?.addEventListener("click", () => {
     ensureAudio();
     if (!spinning) startSpin(); else stopSpinManual();
@@ -307,15 +298,9 @@
   const passwordArea=document.getElementById("passwordArea");
   const resetWinsAllBtn=document.getElementById("resetWinsAllBtn");
 
-  /* 尺寸滑桿 */
-  const sizeSlider = document.getElementById("sizeSlider");
-  const sizeVal = document.getElementById("sizeVal");
-  sizeSlider?.addEventListener("input", ()=>{
-    document.documentElement.style.setProperty("--slot-max", sizeSlider.value + "px");
-    sizeVal.textContent = sizeSlider.value;
-  });
+  // ⚠️ 已移除「尺寸滑桿」所有程式碼（自動響應由 CSS 處理）
 
-  // 建立「強制三連線機率」控制列（0~100%），插在尺寸滑桿那一列後面
+  // === 強制三連線機率列（0~100%）＋ 設定按鈕：放在面板最上方 ===
   function renderForceRateRow(container){
     const old = container.querySelector('.force-row');
     if (old) old.remove();
@@ -329,46 +314,55 @@
     const input = document.createElement("input");
     input.type = "number"; input.min = "0"; input.max = "100"; input.step = "1";
     input.value = String(FORCE_JACKPOT_RATE_PERCENT);
+
+    const setBtn = document.createElement("button");
+    setBtn.textContent = "設定";
+    setBtn.className = "btn mini";
+
     input.oninput = ()=>{
       let v = Math.floor(Number(input.value)||0);
       if(v<0) v=0; if(v>100) v=100;
-      FORCE_JACKPOT_RATE_PERCENT = v;
       input.value = String(v);
-      try{ localStorage.setItem(LS_FORCE_RATE, String(v)); }catch(e){}
+    };
+    setBtn.onclick = () => {
+      let v = Math.floor(Number(input.value) || 0);
+      if (v < 0) v = 0; if (v > 100) v = 100;
+      FORCE_JACKPOT_RATE_PERCENT = v;
+      try { localStorage.setItem(LS_FORCE_RATE, String(v)); } catch(e) {}
+      msg.textContent = `🎯 已設定強制三連線機率為 ${v}%`;
     };
 
     const tip = document.createElement("span");
     tip.className="muted";
     tip.textContent = "（0 = 不啟用；預設 20）";
 
-    row.append(label, input, tip);
+    const resetBtn = document.createElement("button");
+resetBtn.textContent = "重置";
+resetBtn.className = "btn mini";
+resetBtn.onclick = () => {
+  FORCE_JACKPOT_RATE_PERCENT = 20;
+  input.value = "20";
+  try { localStorage.setItem(LS_FORCE_RATE, "20"); } catch(e) {}
+  msg.textContent = "🔄 已重置強制三連線機率為 20%";
+};
 
-    const sizeRow = container.querySelector('.size-row'); // 尺寸滑桿那一列
-    if (sizeRow) {
-      sizeRow.parentNode.insertBefore(row, sizeRow.nextSibling);
-    } else {
-      container.appendChild(row);
-    }
+row.append(label, input, setBtn, resetBtn, tip);
+
+
+    // 直接插在面板內容最上方
+    container.prepend(row);
   }
 
   function renderConfig(){
     cfgHost.innerHTML="";
 
-    // 先插入強制機率控制（放在尺寸列後面）
+    // 插入強制機率控制
     renderForceRateRow(cfgArea);
 
     const heads=["人物","權重(1~10)","預覽","已中","上限","重置"];
-    heads.forEach((h,idx)=>{
+    heads.forEach((h)=>{
       const d=document.createElement("div");
-      d.className="hdr";
-      d.textContent=h;
-      if(idx===1){
-        const tip=document.createElement("span");
-        tip.className="hint"; tip.setAttribute("tabindex","0");
-        tip.setAttribute("aria-label","權重說明");
-        tip.setAttribute("data-tip","權重越高，中獎機率越高。\n1 = 最低，10 = 最高。\n達上限後：該人物會被移出轉盤，直到按「重置」或「重置遊戲」。");
-        tip.textContent="?"; d.append(" ", tip);
-      }
+      d.className="hdr"; d.textContent=h;
       cfgHost.appendChild(d);
     });
 
@@ -414,8 +408,8 @@
   document.getElementById("passBtn")?.addEventListener("click", ()=>{
     if(passInput.value===PASSWORD){
       passMsg.textContent="✅ 密碼正確";
-      document.getElementById("passwordArea").style.display="none";
-      document.getElementById("cfgContainer").style.display="block";
+      passwordArea.style.display="none";
+      cfgArea.style.display="block";
       renderConfig();
     }else{
       passMsg.textContent="❌ 密碼錯誤";
@@ -442,15 +436,11 @@
 
   /* 初始化 */
   preload(symbols).then(()=>{
-    // 預先放三張，確保進入畫面就有圖
     const f = symbols;
     document.getElementById("r1").src = f[0].file;
     document.getElementById("r2").src = f[1].file;
     document.getElementById("r3").src = f[2].file;
-
-    // 初始提示音
     playStartHint();
-
     msg.textContent = "照片已就緒：按下方拉霸按鈕開始！";
   });
 })();

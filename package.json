@@ -1,14 +1,16 @@
 {
   "name": "colorful-one-slot-photo-slot-game",
-  "version": "2025.10.18-2",
+  "version": "2025.10.18-6",
   "description": "芷瑜三格照片拉霸遊戲",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "electron-builder"
   },
   "author": "華谷電機機工課雷射組 副組長 李書宏 (Tony)",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^31.0.0"
+    "electron": "^31.0.0",
+    "electron-builder": "^26.0.12"
   }
 }

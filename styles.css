@@ -2,12 +2,19 @@
   --bg1:#0b0c14; --bg2:#000; --ink:#e9ecf2; --frame:#292e42;
   --accent:#ffd54a; --ok:#38ef7d; --bad:#ff6b6b; --gold:#f5c542;
 
-  /* 槽位最大尺寸上限（可由面板調整），預設 550px */
-  --slot-max: 550px;
+  --slot-min: 280px;
+  --slot-max: 720px;
 
-    --wrap-max: 1100px;
-  /* 實際槽位尺寸：不超過上限，且不超過視窗寬度/3（預留左右間距） */
-  --slot-size: min(var(--slot-max), calc((min(100vw, var(--wrap-max)) - 160px) / 3));
+  /* 包裝最大寬（控制 27" 放大上限） */
+  --wrap-max: 2400px;
+
+  /* 自動計算的槽位尺寸：在 min~max 間，依視窗寬度等比例縮放 */
+  --slot-size: clamp(
+    var(--slot-min),
+    calc((min(100vw, var(--wrap-max)) - 160px) / 3),
+    var(--slot-max)
+  );
+
 }
 
 *{ box-sizing:border-box }
@@ -25,11 +32,28 @@ body{
   overflow-x:hidden; overflow-y:auto; padding-bottom:260px;
 }
 
-h1{
-  margin:16px 0 0;
-  color:var(--accent);
-  text-shadow:0 0 18px rgba(255,213,74,.5);
+/* ===== 標題：與拉霸區同藍底 ===== */
+h1 {
+  display: inline-block;
+  margin: 16px 0 0;
+  padding: 10px 24px;
+  background: linear-gradient(180deg, #14192b, #0f1120); /* 同 .wrap 背景漸層 */
+  color: #ffd54a;                      /* 原始主色金黃 */
+  font-weight: 800;
+  letter-spacing: 2px;
+  border-radius: 12px;
+  text-align: center;
+  border: 2px solid #292e42;           /* 與拉霸外框一致 */
+  box-shadow:
+    inset 0 0 0 2px #0b0d18,
+    0 6px 18px rgba(0,0,0,0.4),
+    0 0 20px rgba(255, 213, 74, 0.25);
+  text-shadow:
+    0 0 10px rgba(255, 213, 74, 0.6),
+    0 0 20px rgba(255, 160, 0, 0.4);
 }
+
+
 
 /* 置頂操作列 */
 .hud{
@@ -48,76 +72,78 @@ h1{
   box-shadow:0 8px 20px rgba(0,0,0,.35); user-select:none;
 }
 
-/* === 外框：自適應寬度，但上限對齊 3*slot-max + 96px（gap+padding）=== */
 .wrap{
   padding:22px;
   background:linear-gradient(180deg,#14192b,#0f1120);
   border:2px solid var(--frame); border-radius:22px;
   box-shadow:inset 0 0 0 2px #0b0d18, 0 30px 70px rgba(0,0,0,.55);
-
-  /* 100% 視口寬 - 64px 內距 vs 三格上限，取較小者 */
-  max-width: min(calc(100vw - 64px), calc(3 * var(--slot-max) + 96px));
-  width: 100%;
-  margin: 0 auto;
+  width:100%;
+  max-width:min(calc(100vw - 64px), calc(3 * var(--slot-size) + 96px));
+  margin:0 auto;
+  box-sizing:border-box;
 }
 
-/* === 拉霸盤：固定 3 欄、等分欄寬；寬度規則與 .wrap 完全一致，避免出現外層寬、內層更寬的落差 === */
+/* === 拉霸盤：自動等比例縮放，不再溢出 === */
 .machine{
-  display: grid;
+  display:grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-  padding: 24px;
+  gap:24px; padding:24px;
   background:#0e1020; border:2px solid #23283a; border-radius:16px;
 
-  max-width: min(calc(100vw - 64px), calc(3 * var(--slot-max) + 96px));
-  width: 100%;
-  margin: 0 auto;
+  width:100%;
+  max-width:min(calc(100vw - 64px), calc(3 * var(--slot-size) + 96px));
+  margin:0 auto;
+  box-sizing:border-box;
 }
 
-/* === 槽位：用 aspect-ratio 保正方形；任何情況都不會溢出 === */
+/* === 槽位：保持正方形、依容器自動縮放 === */
 .slot{
-  width: 100%;
+  width:100%;
   aspect-ratio: 1 / 1;
-  position: relative;
-  overflow: hidden;
-  border-radius: 14px;
-  border: 3px solid #3c4055;
-  background: #0b0d18;
-  box-shadow: inset 0 0 20px rgba(0,0,0,.7);
+  position:relative; overflow:hidden; border-radius:14px;
+  border:3px solid #3c4055; background:#0b0d18;
+  box-shadow:inset 0 0 20px rgba(0,0,0,.7);
 }
 
-/* 圖片一定吃滿槽位，但不裁切；仍保持原比例 */
-.slot img{
-  position: absolute; inset: 0;
-  width: 100%; height: 100%;
-  object-fit: contain;
-  background:#0b0d18; filter:brightness(.98) contrast(1.02);
-}
-
-/* 小螢幕再收一點，避免左右貼邊 */
-@media (max-width: 1024px){
-  .wrap, .machine{
-    max-width: min(calc(100vw - 36px), calc(3 * var(--slot-max) + 96px));
-  }
-}
-
-.slot.spin::after{
-  content:""; position:absolute; inset:0; border-radius:12px; border:1px solid rgba(255,213,74,.25);
-  box-shadow:0 0 26px rgba(255,213,74,.18), inset 0 0 24px rgba(255,213,74,.08);
-  animation:pulse .4s infinite alternate ease-in-out;
-}
-@keyframes pulse{ from{opacity:.4} to{opacity:1} }
-
+/* 圖片永不超出格子 */
 .slot img{
   position:absolute; inset:0; width:100%; height:100%;
   object-fit:contain; background:#0b0d18;
   filter:brightness(.98) contrast(1.02);
 }
-.blur{ filter:brightness(.95) contrast(1.03) blur(2px) }
+/* 轉動特效 */
+.slot.spin::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 213, 74, 0.25);
+  box-shadow: 0 0 26px rgba(255, 213, 74, 0.18),
+              inset 0 0 24px rgba(255, 213, 74, 0.08);
+  animation: pulse 0.4s infinite alternate ease-in-out;
+}
+@keyframes pulse { from { opacity: 0.4; } to { opacity: 1; } }
 
-.message{ margin-top:10px; text-align:center }
-.message.ok{ color:var(--ok) }
-.message.bad{ color:var(--bad) }
+/* === 圖片永不超格 === */
+.slot img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #0b0d18;
+  filter: brightness(0.98) contrast(1.02);
+}
+.blur { filter: brightness(0.95) contrast(1.03) blur(2px); }
+
+/* === 狀態文字 === */
+.message {
+  margin-top: 10px;
+  text-align: center;
+}
+.message.ok { color: var(--ok); }
+.message.bad { color: var(--bad); }
+
 
 /* 三連線：金框＋震動 */
 .slot.win{
@@ -237,4 +263,77 @@ details.config{
 @media (max-width: 600px){
   :root{ --slot-size: min(var(--slot-max), calc((100vw - 36px) / 3)); }
   #panelSpinBtn{ font-size:16px; padding:11px 22px; transform: translateY(-2px); }
+}
+/* ✅ 聲音靠左、拉霸鈕真正置中、中獎次數靠右 */
+.control-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center; /* 中間為主 */
+  width: 100%;
+  max-width: min(calc(100vw - 64px), calc(3 * var(--slot-max) + 96px));
+  margin: 12px auto 0;
+  padding: 0 24px;
+  box-sizing: border-box;
+}
+
+/* 左側：聲音與音量靠左絕對定位 */
+.control-bar .wing.left {
+  position: absolute;
+  left: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.control-bar .wing.left label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+/* 中間拉霸鈕：完全置中 */
+.control-bar .center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 右側統計：靠右絕對定位 */
+.control-bar .wing.right {
+  position: absolute;
+  right: 24px;
+  display: flex;
+  align-items: center;
+}
+
+/* 音量滑桿寬度 */
+.control-bar #vol {
+  width: 140px;
+}
+
+/* 中獎統計外觀 */
+.control-bar .stat {
+  padding: 6px 10px;
+  border: 1px solid #2b3044;
+  border-radius: 10px;
+  background: #0f1222;
+  color: var(--ink);
+  font-size: 15px;
+}
+
+
+/* ===== 版本號顯示在總中獎下方 ===== */
+.wing.right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end; /* 對齊右側 */
+}
+
+.version-text {
+  font-size: 13px;
+  color: #9ca3af;        /* 淡灰色 */
+  margin-top: 4px;
+  opacity: 0.85;
+  text-align: right;
 }
